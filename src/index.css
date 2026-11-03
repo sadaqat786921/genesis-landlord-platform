@@ -1,0 +1,4 @@
+/* Tailwind utilities are available for future edits. Tailwind's base reset
+   (preflight) is left out on purpose so it doesn't change the approved design. */
+@import 'tailwindcss/theme' layer(theme);
+@import 'tailwindcss/utilities' layer(utilities);
