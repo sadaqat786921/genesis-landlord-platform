@@ -58,6 +58,19 @@ export function allowanceOf(s: S) {
   const pct = total ? Math.round(used / total * 100) : 0; const pctAll = total ? Math.round((used + committed) / total * 100) : 0;
   return { total, used, committed, waiting, left: Math.max(0, total - used - committed), leftAfter: Math.max(0, total - used - committed), pct, pctAll, posts, renews: renewDate(s) };
 }
+/** One managed home's yearly repair budget, from the repairs at that home. Only the part the plan covers comes out of it, once. */
+export function homeBudget(s: S, p: Property) {
+  const jobs = s.jobs.filter(j => j.property === p.id && !j.ownerRepair && j.status !== 'Declined' && j.price > 0);
+  const cov = (j: Job) => coverOf(s, j).covered;
+  const done = jobs.filter(j => ['Approved', 'Invoiced'].includes(j.status));
+  const active = jobs.filter(j => ['Landlord approval', 'Ready to assign', 'Assigned', 'In progress', 'Sent back', 'Proof uploaded'].includes(j.status));
+  const pending = jobs.filter(j => ['New', 'Waiting approval'].includes(j.status));
+  const used = r2(done.reduce((a, j) => a + cov(j), 0)); const committed = r2(active.reduce((a, j) => a + cov(j), 0));
+  const waiting = r2(pending.reduce((a, j) => a + j.price, 0)); const youPay = r2(jobs.reduce((a, j) => a + coverOf(s, j).pays, 0));
+  const total = p.budget || 0; const left = Math.max(0, r2(total - used - committed));
+  const pct = total ? Math.round(used / total * 100) : 0; const pctAll = total ? Math.round((used + committed) / total * 100) : 0;
+  return { total, used, committed, waiting, youPay, left, pct, pctAll, jobs, done, active, pending, alerts: [70, 90, 100].filter(t => pctAll >= t), renews: renewDate(s) };
+}
 export const allowTone = (pct: number) => pct >= 90 ? 'err' as const : pct >= 70 ? 'warn' as const : 'brand' as const;
 /** Colour names the budget bar understands. */
 export const barTone = (pct: number) => pct >= 90 ? 'err' : pct >= 70 ? 'warn' : 'ok';

@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { Home, KeyRound, Wrench, ShieldCheck, ClipboardCheck, FileText, PoundSterling, MessageSquare, Download, Building2, CheckCircle2 } from 'lucide-react';
 import { useStore, useLookups, money, rentStatus } from '../store';
 import { CERT_KINDS, daysFrom, parseDate, type Property } from '../data';
-import { Btn, Card, Chip, Empty, KV, Kpi, Note, PageTabs, Stat, When, Timeline, FilterBar, applyFlt, useFlt, yearsOf } from '../ui';
+import { Bar, Btn, Card, Chip, Empty, KV, Kpi, Note, PageTabs, Stat, When, Timeline, FilterBar, applyFlt, useFlt, yearsOf } from '../ui';
 import { PageHeader, crumbsFor } from '../Shell';
-import { DONE_JOB, homeType, managedHomes, leasedHomes, adminName, certTone, certLabel, InspectionModal, PlanModal, AskModal, needsMe, MiniJobList, statements } from './lib';
+import { DONE_JOB, homeType, managedHomes, leasedHomes, adminName, certTone, certLabel, InspectionModal, PlanModal, AskModal, needsMe, MiniJobList, statements, homeBudget, coverOf, limitOf, jobView, barTone } from './lib';
 import { RepairTable } from './Repairs';
 import { CertTable } from './Safety';
 import { DocTable, docsFor } from './Documents';
@@ -24,13 +24,14 @@ function HomeCard({ p }: { p: Property }) {
   const open = s.jobs.filter(j => j.property === p.id && !DONE_JOB.includes(j.status)).length;
   const certs = s.safety.filter(c => c.property === p.id); const bad = certs.filter(c => ['Overdue', 'Missing'].includes(c.status)).length; const soon = certs.filter(c => ['Due soon', 'Booked'].includes(c.status) && c.days <= 30).length;
   const t = s.tenants.find(x => x.property === p.id && x.status !== 'Moved out'); const r = t ? s.rent.find(x => x.tenant === t.id) : undefined;
-  const leased = isLeased(p);
+  const leased = isLeased(p); const hb = homeBudget(s, p);
   return <button className="kcard pcard" onClick={() => s.go('properties', p.id)}>
     <div className="photo" style={{ height: 140, backgroundImage: `url(${p.photo})` }}><span className="flex" style={{ gap: 6 }}>{leased && <Chip tone="brand" dot={false}>Leased to LSP</Chip>}<Chip tone={p.status === 'Let' ? 'ok' : 'warn'}>{p.status}</Chip></span></div>
     <div className="stack"><b style={{ fontSize: 14 }}>{p.address}</b><span className="caption">{p.area} · {homeType(p)}</span></div>
     <div className="flex between"><span className="small">{leased ? 'Leased to LSP' : t ? t.name : 'No tenant'}</span><b style={{ color: 'var(--text-brand)' }}>{money(leased ? p.lease!.rent : p.rent)}<span className="caption"> {leased ? 'to you' : 'pcm'}</span></b></div>
     <div className="pstats">
       <span><Wrench size={13} />{open ? `${open} open repair${open > 1 ? 's' : ''}` : 'No open repairs'}</span>
+      {!leased && <span className={hb.pctAll >= 90 ? 'bad' : hb.pctAll >= 70 ? 'soon' : 'good'}><PoundSterling size={13} />Repair budget {hb.pctAll}% used</span>}
       <span className={bad ? 'bad' : soon ? 'soon' : 'good'}><ShieldCheck size={13} />{bad ? `${bad} safety issue${bad > 1 ? 's' : ''}` : soon ? `${soon} ending soon` : 'Safety in date'}</span>
       {!leased && r && <span className={rentStatus(r).tone === 'err' ? 'bad' : rentStatus(r).tone === 'ok' ? 'good' : 'soon'}><PoundSterling size={13} />Rent {rentStatus(r).label.toLowerCase()}</span>}
       {leased && <span><KeyRound size={13} />Lease to {p.lease!.end}</span>}
@@ -59,7 +60,7 @@ function PropertyList() {
   </>;
 }
 
-type PTab = 'overview' | 'rooms' | 'tenancy' | 'repairs' | 'safety' | 'inspections' | 'rent' | 'lease' | 'payments' | 'documents' | 'history';
+type PTab = 'overview' | 'rooms' | 'budget' | 'tenancy' | 'repairs' | 'safety' | 'inspections' | 'rent' | 'lease' | 'payments' | 'documents' | 'history';
 function PropertyPage({ id }: { id: string }) {
   const s = useStore(); const L = useLookups(); const p = s.properties.find(x => x.id === id)!; const leased = isLeased(p);
   const [tab, setTab] = useState<PTab>('overview'); const [m, setM] = useState<'' | 'plan' | 'ask' | string>('');
@@ -73,7 +74,7 @@ function PropertyPage({ id }: { id: string }) {
   const docs = docsFor(s, L, id);
   const tabs: { id: PTab; label: string; count?: number }[] = leased
     ? [{ id: 'overview', label: 'Overview' }, { id: 'rooms', label: 'Rooms', count: s.rooms.filter(r => r.property === p.id).length }, { id: 'lease', label: 'Lease' }, { id: 'payments', label: 'Lease payments', count: pays.length }, { id: 'repairs', label: 'Owner repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }]
-    : [{ id: 'overview', label: 'Overview' }, { id: 'rooms', label: 'Rooms', count: s.rooms.filter(r => r.property === p.id).length }, { id: 'tenancy', label: 'Tenancy', count: tenants.length }, { id: 'repairs', label: 'Repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'inspections', label: 'Inspections', count: insp.length }, { id: 'rent', label: 'Rent' }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }];
+    : [{ id: 'overview', label: 'Overview' }, { id: 'rooms', label: 'Rooms', count: s.rooms.filter(r => r.property === p.id).length }, { id: 'tenancy', label: 'Tenancy', count: tenants.length }, { id: 'repairs', label: 'Repairs', count: jobs.length }, { id: 'budget', label: 'Repair budget' }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'inspections', label: 'Inspections', count: insp.length }, { id: 'rent', label: 'Rent' }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }];
   const f = feeOf(p.rent, s.me.plan, s.vat);
   const insp1 = typeof m === 'string' && m.startsWith('I') ? s.inspections.find(i => i.id === m) : undefined;
   return <>
@@ -106,8 +107,9 @@ function PropertyPage({ id }: { id: string }) {
           <div className={f.on ? 'vat' : 'muted2'}><span>VAT · {f.on ? `${f.rate}%` : 'not charged'}</span><b>{money(f.on ? f.vat : 0)}</b></div>
           <div className="tot"><span>You pay LSP</span><b>{money(f.total)}<em>{f.on ? ` · ${pctText(f.incl)} incl. VAT` : ''}</em></b></div>
         </div>
-        <span className="caption">Repairs under {money(200)} are covered by your plan and use your maintenance allowance. <button className="link" onClick={() => s.go('plan')}>See my plan</button></span>
+        <span className="caption">Repairs under {money(limitOf(s))} are covered by your plan and come out of this home's repair budget. <button className="link" onClick={() => setTab('budget')}>See the repair budget</button></span>
       </Card>
+      <BudgetCard p={p} onOpen={() => setTab('budget')} />
       <Card title="Open repairs" action={<Btn sm kind="ghost" onClick={() => setTab('repairs')}>See all {jobs.length}</Btn>}><MiniJobList jobs={open} empty="No open repairs." /></Card>
       <Card title="Safety checks" action={<Btn sm kind="ghost" onClick={() => setTab('safety')}>Open</Btn>}><div className="certgrid">{CERT_KINDS.filter(k => certs.some(c => c.kind === k)).map(k => { const c = certs.find(x => x.kind === k)!; return <button key={k} className={`certcell c-${certTone(c.status)}`} onClick={() => s.go('safety', c.id)}><b>{k}</b><span>{c.status === 'Missing' ? 'No certificate' : 'Ends ' + c.expires}</span><Chip tone={certTone(c.status)}>{certLabel(c)}</Chip></button>; })}</div></Card>
     </div>}
@@ -128,6 +130,7 @@ function PropertyPage({ id }: { id: string }) {
     </div>}
 
     {tab === 'rooms' && <RoomsCard p={p} />}
+    {tab === 'budget' && !leased && <BudgetTab p={p} />}
     {tab === 'tenancy' && <><TenancyTab p={p} /><TenantDamage p={p} /></>}
     {tab === 'repairs' && <Card title={leased ? 'Owner repairs' : 'Repairs'} sub={leased ? `Only work that is yours under the lease (${p.lease!.ownerDoes.toLowerCase()}). LSP handles everything else.` : 'Everything reported for this home, with the cost and where it is.'}><RepairTable list={jobs} hideHome /></Card>}
     {tab === 'safety' && <Card title="Safety checks" sub="Certificates for this home. LSP books renewals and checks the evidence before marking them done."><CertTable list={certs} hideHome /></Card>}
@@ -198,4 +201,43 @@ function HomeHistory({ p }: { p: Property }) {
     <FilterBar f={f} set={setF} placeholder="Search history" years={yearsOf(all, x => x.at)} shown={list.length} total={all.length} />
     <Timeline items={list} />{!list.length && <Empty icon={<CheckCircle2 size={22} />}>Nothing matches.</Empty>}
   </Card>;
+}
+
+/* ---------- the home's yearly repair budget ---------- */
+function BudgetBar({ used, committed, total }: { used: number; committed: number; total: number }) {
+  const u = total ? Math.min(100, used / total * 100) : 0; const c = total ? Math.min(100 - u, committed / total * 100) : 0;
+  const tone = barTone(total ? Math.round((used + committed) / total * 100) : 0);
+  return <div className="bbar"><i className={`u ${tone}`} style={{ width: u + '%' }} />{c > 0 && <i className={`j ${tone}`} style={{ width: c + '%' }} />}{[70, 90].map(m => <span key={m} className="mk" style={{ left: m + '%' }}><em>{m}%</em></span>)}</div>;
+}
+function BudgetSummary({ p, narrow }: { p: Property; narrow?: boolean }) {
+  const s = useStore(); const b = homeBudget(s, p);
+  return <>
+    <div className="flex between"><span className="metric">{b.pctAll}%</span><Chip tone={b.pctAll >= 90 ? 'err' : b.pctAll >= 70 ? 'warn' : 'ok'}>{b.pctAll >= 100 ? 'Budget used up' : b.pctAll >= 90 ? '90% alert sent' : b.pctAll >= 70 ? '70% alert sent' : 'Under 70%'}</Chip></div>
+    <BudgetBar used={b.used} committed={b.committed} total={b.total} />
+    <div className="flex wrap" style={{ gap: 14 }}><span className="legend"><i className="lg-u" />Used</span><span className="legend"><i className="lg-j" />Approved, work under way</span><span className="legend"><i className="lg-f" />Left</span></div>
+    <div className={`grid ${narrow ? 'g2' : 'g4'}`} style={{ gap: 10 }}>{[['Yearly budget', money(b.total)], ['Used', money(b.used)], ['Approved, under way', money(b.committed)], ['Left', money(b.left)]].map(([k, v]) => <div key={k} className="mt stack"><span className="caption">{k}</span><b>{v}</b></div>)}</div>
+  </>;
+}
+function BudgetCard({ p, onOpen }: { p: Property; onOpen: () => void }) {
+  const s = useStore();
+  return <Card title="Repair budget" sub={`This home's yearly repair budget. Repairs under your ${money(limitOf(s))} job limit come out of it once, when they are approved.`} action={<Btn sm kind="ghost" onClick={onOpen}>Open</Btn>}><BudgetSummary p={p} /></Card>;
+}
+function BudgetTab({ p }: { p: Property }) {
+  const s = useStore(); const b = homeBudget(s, p);
+  const rows = [...b.done, ...b.active, ...b.pending].sort((x, y) => parseDate(y.reported).getTime() - parseDate(x.reported).getTime());
+  return <div className="dgrid">
+    <div className="col">
+      <Card title="Where the budget went" sub="Every repair at this home this year: the total, what the plan covered from this budget and what you paid.">
+        {rows.length ? <div className="tablewrap"><table className="t"><thead><tr><th>Repair</th><th>Reported</th><th>Status</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'right' }}>From budget</th><th style={{ textAlign: 'right' }}>You pay</th></tr></thead><tbody>
+          {rows.map(j => { const cv = coverOf(s, j); const pend = b.pending.includes(j); return <tr key={j.id} onClick={() => s.go('repairs', j.id)}><td><b className="strong">{j.title}</b></td><td><When at={j.reported} /></td><td><Chip tone={jobView(j).tone}>{jobView(j).label}</Chip></td><td style={{ textAlign: 'right' }}>{money(j.price)}</td><td style={{ textAlign: 'right' }}>{pend ? <span className="caption">not yet</span> : <b>{money(cv.covered)}</b>}</td><td style={{ textAlign: 'right' }}>{pend ? <span className="caption">—</span> : money(cv.pays)}</td></tr>; })}
+        </tbody></table></div> : <Empty icon={<PoundSterling size={22} />}>No repairs at this home this year.</Empty>}
+        {b.waiting > 0 && <Note>{money(b.waiting)} of repairs are priced and waiting for LSP to approve. They come off the budget only once approved.</Note>}
+      </Card>
+    </div>
+    <div className="col">
+      <Card title="This year" sub={`Renews on ${b.renews}.`}><BudgetSummary p={p} narrow /></Card>
+      <Card title="Alerts" sub="LSP emails you when the budget reaches each level."><div className="flex wrap">{[70, 90, 100].map(a => <Chip key={a} tone={b.alerts.includes(a) ? (a === 70 ? 'warn' : 'err') : 'neutral'} dot={false}>{a}%{b.alerts.includes(a) ? ' · sent' : ''}</Chip>)}</div></Card>
+      <Card title="How it works"><KV rows={[['Under the job limit', `Covered by your plan. Comes out of this budget.`], ['Over the job limit', 'LSP covers it under your plan, or sends you a quote: the plan covers part, you pay the rest.'], ['You pay this year', money(b.youPay)], ['Owner and tenant damage', 'Never taken from this budget.']]} /></Card>
+    </div>
+  </div>;
 }
