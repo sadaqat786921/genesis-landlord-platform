@@ -1,3 +1,5 @@
+import { RoomsCard } from './Rooms';
+import { TenantDamage } from './DamageView';
 import { useState } from 'react';
 import { Home, KeyRound, Wrench, ShieldCheck, ClipboardCheck, FileText, PoundSterling, MessageSquare, Download, Building2, CheckCircle2 } from 'lucide-react';
 import { useStore, useLookups, money, rentStatus } from '../store';
@@ -57,7 +59,7 @@ function PropertyList() {
   </>;
 }
 
-type PTab = 'overview' | 'tenancy' | 'repairs' | 'safety' | 'inspections' | 'rent' | 'lease' | 'payments' | 'documents' | 'history';
+type PTab = 'overview' | 'rooms' | 'tenancy' | 'repairs' | 'safety' | 'inspections' | 'rent' | 'lease' | 'payments' | 'documents' | 'history';
 function PropertyPage({ id }: { id: string }) {
   const s = useStore(); const L = useLookups(); const p = s.properties.find(x => x.id === id)!; const leased = isLeased(p);
   const [tab, setTab] = useState<PTab>('overview'); const [m, setM] = useState<'' | 'plan' | 'ask' | string>('');
@@ -70,8 +72,8 @@ function PropertyPage({ id }: { id: string }) {
   const pays = s.leasePays.filter(x => x.property === id); const owed = pays.filter(x => daysFrom(x.due) <= 0).reduce((a, x) => a + x.amount - x.paid, 0);
   const docs = docsFor(s, L, id);
   const tabs: { id: PTab; label: string; count?: number }[] = leased
-    ? [{ id: 'overview', label: 'Overview' }, { id: 'lease', label: 'Lease' }, { id: 'payments', label: 'Lease payments', count: pays.length }, { id: 'repairs', label: 'Owner repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }]
-    : [{ id: 'overview', label: 'Overview' }, { id: 'tenancy', label: 'Tenancy', count: tenants.length }, { id: 'repairs', label: 'Repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'inspections', label: 'Inspections', count: insp.length }, { id: 'rent', label: 'Rent' }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }];
+    ? [{ id: 'overview', label: 'Overview' }, { id: 'rooms', label: 'Rooms', count: s.rooms.filter(r => r.property === p.id).length }, { id: 'lease', label: 'Lease' }, { id: 'payments', label: 'Lease payments', count: pays.length }, { id: 'repairs', label: 'Owner repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }]
+    : [{ id: 'overview', label: 'Overview' }, { id: 'rooms', label: 'Rooms', count: s.rooms.filter(r => r.property === p.id).length }, { id: 'tenancy', label: 'Tenancy', count: tenants.length }, { id: 'repairs', label: 'Repairs', count: jobs.length }, { id: 'safety', label: 'Safety checks', count: certs.length }, { id: 'inspections', label: 'Inspections', count: insp.length }, { id: 'rent', label: 'Rent' }, { id: 'documents', label: 'Documents', count: docs.length }, { id: 'history', label: 'History' }];
   const f = feeOf(p.rent, s.me.plan, s.vat);
   const insp1 = typeof m === 'string' && m.startsWith('I') ? s.inspections.find(i => i.id === m) : undefined;
   return <>
@@ -125,7 +127,8 @@ function PropertyPage({ id }: { id: string }) {
       <Card title="Safety checks" sub="LSP keeps these in date as the landlord to the occupiers."><div className="certgrid">{certs.map(c => <button key={c.id} className={`certcell c-${certTone(c.status)}`} onClick={() => s.go('safety', c.id)}><b>{c.kind}</b><span>Ends {c.expires}</span><Chip tone={certTone(c.status)}>{certLabel(c)}</Chip></button>)}</div></Card>
     </div>}
 
-    {tab === 'tenancy' && <TenancyTab p={p} />}
+    {tab === 'rooms' && <RoomsCard p={p} />}
+    {tab === 'tenancy' && <><TenancyTab p={p} /><TenantDamage p={p} /></>}
     {tab === 'repairs' && <Card title={leased ? 'Owner repairs' : 'Repairs'} sub={leased ? `Only work that is yours under the lease (${p.lease!.ownerDoes.toLowerCase()}). LSP handles everything else.` : 'Everything reported for this home, with the cost and where it is.'}><RepairTable list={jobs} hideHome /></Card>}
     {tab === 'safety' && <Card title="Safety checks" sub="Certificates for this home. LSP books renewals and checks the evidence before marking them done."><CertTable list={certs} hideHome /></Card>}
     {tab === 'inspections' && <Card title="Inspections" sub="Move-in, routine and move-out reports. Finished reports are checked and locked by LSP.">

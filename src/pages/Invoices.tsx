@@ -20,7 +20,7 @@ export function Invoices() {
       <Kpi icon={<BadgePercent size={18} />} tone="ok" label="Covered by your plan" value={covered.length} caption={`${money(covered.reduce((a, i) => a + i.amount, 0))} · nothing to pay`} onClick={() => s.go('plan')} />
       <Kpi icon={<CheckCircle2 size={18} />} tone="info" label="All invoices" value={all.length} caption="kept for your records" />
     </div>
-    <Note>Repairs under your job limit are covered by your plan, so their invoices show £0 to pay. Repairs you approved over the limit are taken from your next rent payout, or you can pay by bank transfer to {COMPANY.bank.join(', ')}.</Note>
+    <Note>Repairs under your job limit are covered by your plan, so their invoices show £0 to pay. For a repair over the limit you approved a quote first: the invoice shows what your plan covered and the balance you pay. It is taken from your next rent payout, or you can pay by bank transfer to {COMPANY.bank.join(', ')}.</Note>
     <Card title="Your invoices" sub="Click one to see it on LSP's paper and download the PDF.">
       <FilterBar f={f} set={setF} placeholder="Search invoice, home or work" types={[...new Set(all.map(i => invoiceView(s, i).label.split(' ·')[0]))]} typeLabel="Any status" years={yearsOf(all, i => i.issued)} shown={list.length} total={all.length} />
       <div className="tablewrap"><table className="t"><thead><tr><th>Invoice</th><th>For</th><th>Amount</th><th>To pay</th><th>Issued</th><th>Status</th><th /></tr></thead><tbody>

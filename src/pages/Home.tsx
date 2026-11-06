@@ -3,7 +3,7 @@ import { useStore, useLookups, money, rentStatus } from '../store';
 import { daysFrom, ME_NAME, LSP_PHONE } from '../data';
 import { Btn, Card, Chip, Kpi, Note, Empty } from '../ui';
 import { PageHeader } from '../Shell';
-import { needsMe, allowanceOf, allowTone, statements, managedHomes, leasedHomes, whyMe, DONE_JOB, MiniJobList, homeType, myAdmin } from './lib';
+import { needsMe, allowanceOf, allowTone, statements, managedHomes, leasedHomes, whyMe, coverOf, DONE_JOB, MiniJobList, homeType, myAdmin } from './lib';
 import { isLeased } from '../pricing';
 
 export default function HomePage() {
@@ -39,7 +39,7 @@ export default function HomePage() {
       <Card title="Needs your decision" sub="Repairs that can't start until you approve them." action={<Chip tone={waiting.length ? 'warn' : 'ok'}>{waiting.length} waiting</Chip>} style={{ width: 400, flex: 'none' }}>
         {waiting.map(j => <div className="lrow" key={j.id}>
           <span className="tile t-white" style={{ width: 36, height: 36 }}>{j.ownerRepair ? <KeyRound size={18} /> : <Wrench size={18} />}</span>
-          <button className="stack grow" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, minWidth: 0 }} onClick={() => s.go('approvals', j.id)}><span className="flex" style={{ gap: 6 }}><b className="ellip">{j.title}</b><b style={{ color: 'var(--warn)' }}>{money(j.price)}</b></span><span className="caption ellip">{L.prop(j.property)?.address} · {whyMe(s, j)}</span></button>
+          <button className="stack grow" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, minWidth: 0 }} onClick={() => s.go('approvals', j.id)}><span className="flex" style={{ gap: 6 }}><b className="ellip">{j.title}</b><b style={{ color: 'var(--warn)' }}>{money(coverOf(s, j).pays)}</b></span><span className="caption ellip">{L.prop(j.property)?.address} · {coverOf(s, j).covered ? `plan covers ${money(coverOf(s, j).covered)}` : whyMe(s, j)}</span></button>
           <Btn sm onClick={() => s.go('approvals', j.id)}>Review</Btn>
         </div>)}
         {!waiting.length && <Note tone="ok">Nothing waiting for you.</Note>}

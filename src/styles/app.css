@@ -952,3 +952,53 @@ tr.static { cursor: default; } tr.static:hover td { background: none; }
 .lp-plans.four .lp-plan { padding-left: 22px; padding-right: 22px; }
 @media (max-width: 1180px) { .lp-plans.four { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .lp-plans.four { grid-template-columns: 1fr; } }
+
+/* ---- rooms: room cards, photo gallery, floor plan (same in every portal) ---- */
+.roomtiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.roomtiles.sm { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.roomtile { padding: 0; gap: 0; overflow: hidden; cursor: pointer; }
+.roomtile .rt-photo { position: relative; height: 132px; background: var(--bg-muted) center / cover no-repeat; display: flex; align-items: flex-start; padding: 10px; }
+.roomtiles.sm .roomtile .rt-photo { height: 112px; }
+.roomtile .rt-photo .chip { background: rgba(255,255,255,.92); }
+.rt-photo.none, .gallery-main.none { align-items: center; justify-content: center; }
+.rt-photo.none > .chip { position: absolute; top: 10px; left: 10px; }
+.rt-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: 11px; font-weight: 600; }
+.rt-count { position: absolute; right: 10px; bottom: 10px; background: rgba(0,22,73,.72); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; display: inline-flex; gap: 4px; align-items: center; }
+.roomtile .rt-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rt-size { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text-brand); }
+.roomadd { align-items: center; justify-content: center; text-align: center; min-height: 214px; border: 1.5px dashed var(--border-strong); background: var(--bg-subtle); color: var(--text-primary); cursor: pointer; }
+.roomadd:hover { border-color: var(--border-brand); background: var(--bg-brand-subtle); }
+.gallery { display: flex; flex-direction: column; gap: 10px; }
+.gallery-main { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r-xl); background: var(--bg-muted) center / cover no-repeat; display: flex; overflow: hidden; }
+.gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 999px; border: 0; background: rgba(255,255,255,.94); color: var(--text-primary); display: grid; place-items: center; box-shadow: 0 4px 14px rgba(15,24,40,.16); cursor: pointer; }
+.gallery-nav.l { left: 12px; } .gallery-nav.r { right: 12px; }
+.gallery-nav:hover { color: var(--text-brand); }
+.gallery-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.gthumb { position: relative; flex: none; }
+.gthumb > button:first-child { width: 76px; height: 57px; border-radius: 10px; border: 2px solid transparent; background: var(--bg-muted) center / cover no-repeat; padding: 0; cursor: pointer; display: block; }
+.gthumb.on > button:first-child { border-color: var(--border-brand); }
+.gthumb.add { width: 76px; height: 57px; border-radius: 10px; border: 1.5px dashed var(--border-strong); background: var(--bg-subtle); color: var(--text-brand); display: grid; place-items: center; cursor: pointer; }
+.gthumb-x { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 999px; border: 0; background: rgba(0,22,73,.78); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.dims .mt b { font-size: 16px; }
+.plan2d { display: flex; flex-direction: column; gap: 6px; background: var(--bg-subtle); border-radius: var(--r-xl); padding: 10px 12px; }
+.plan2d svg { width: 100%; max-height: 190px; }
+.plan2d .pl-room { fill: #fff; stroke: var(--bg-brand); stroke-width: 4; }
+.plan2d .pl-out { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 2; stroke-dasharray: 6 4; }
+.plan2d .pl-gap { stroke: #fff; stroke-width: 6; }
+.plan2d .pl-door { fill: none; stroke: var(--text-tertiary); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.plan2d .pl-win { stroke: var(--info); stroke-width: 6; }
+.plan2d .pl-dim { stroke: var(--text-tertiary); stroke-width: 1; fill: none; }
+.plan2d .pl-t { font: 600 11px Montserrat, sans-serif; fill: var(--text-secondary); }
+.plan2d .pl-a { font: 800 15px Montserrat, sans-serif; fill: var(--text-brand); }
+.photogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.pg-ph { position: relative; aspect-ratio: 4 / 3; border-radius: 12px; background: var(--bg-muted) center / cover no-repeat; }
+.pg-ph em { position: absolute; left: 6px; bottom: 6px; font-style: normal; background: rgba(0,22,73,.72); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+.dropzone.pg-add { min-height: 0; aspect-ratio: 4 / 3; padding: 8px; gap: 2px; }
+.dropzone.pg-add { min-height: 0; aspect-ratio: 4 / 3; padding: 8px; gap: 2px; }
+/* plan covers / landlord pays split (jobs over the job limit) */
+.covsplit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.covsplit > div { background: var(--bg-subtle); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.covsplit > div b { font-size: 20px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+.covsplit > div.ok { background: var(--ok-bg); } .covsplit > div.ok b { color: var(--ok); }
+.covsplit > div.you { background: var(--bg-brand-subtle); } .covsplit > div.you b { color: var(--text-brand); }
+.covsplit .caption { display: inline-flex; gap: 4px; align-items: center; }

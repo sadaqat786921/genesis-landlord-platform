@@ -1,3 +1,4 @@
+import { TenantDamage } from './DamageView';
 import { useState } from 'react';
 import { UserCheck, PoundSterling, CalendarClock, ShieldCheck, MessageSquare, Home } from 'lucide-react';
 import { useStore, useLookups, money, rentStatus } from '../store';
@@ -50,7 +51,7 @@ function TenantPage({ id }: { id: string }) {
     <DetailHead media={<Avatar name={t.name} size="xl" />} title={t.name} chips={<><Chip tone={t.status === 'Live' ? 'ok' : t.status === 'Moving out' ? 'warn' : 'neutral'}>{t.status}</Chip>{r && <Chip tone={rentStatus(r).tone}>{rentStatus(r).label}</Chip>}</>}
       meta={[['Home', p.address], ['Tenancy', `${t.start} to ${t.end}`], ['Rent', `${money(t.rent)} pcm`], ['Office Admin', adminName(s, p.admin)]]} />
     {t.moveOut && <Card title="Moving out" sub={`Leaving on ${t.moveOut.date}. ${t.moveOut.reason}`}><HSteps items={MOVE} at={t.moveOut.step} /></Card>}
-    <PageTabs value={tab} onChange={setTab} items={[{ id: 'tenancy', label: 'Tenancy' }, { id: 'rent', label: 'Rent' }, { id: 'issues', label: 'Repairs reported', count: issues.length }, { id: 'documents', label: 'Documents', count: docs.length }]} />
+    <PageTabs value={tab} onChange={setTab} items={[{ id: 'tenancy', label: 'Tenancy' }, { id: 'rent', label: 'Rent' }, { id: 'issues', label: 'Repairs & damage', count: issues.length }, { id: 'documents', label: 'Documents', count: docs.length }]} />
     {tab === 'tenancy' && <div className="grid g2">
       <Card title="Tenancy"><KV rows={[['Home', `${p.address} · ${homeType(p)}`], ['Start and end', `${t.start} to ${t.end}`], ['Time left', left > 0 ? `${Math.round(left / 30)} months` : 'Ended'], ['Rent', `${money(t.rent)} a month, due on day ${t.rentDay}`], ['Agreement', 'Signed by everyone · in Documents']]} />
         {left <= 120 && left > 0 && <Note>The tenancy ends within 4 months. LSP will ask you whether to renew.</Note>}</Card>
@@ -64,7 +65,7 @@ function TenantPage({ id }: { id: string }) {
         {r.reminders.length > 0 && <Note>LSP sent {r.reminders.length} reminder{r.reminders.length > 1 ? 's' : ''}. Last one {r.reminders[r.reminders.length - 1].at}.</Note>}</> : <Empty icon={<PoundSterling size={22} />}>No rent recorded yet.</Empty>}
       <Btn kind="ghost" onClick={() => s.go('rent')}>See your statements</Btn>
     </Card>}
-    {tab === 'issues' && <Card title="Repairs reported by this tenant"><MiniJobList jobs={issues} empty="Nothing reported." />{issues.some(j => !DONE_JOB.includes(j.status)) && <span className="caption">LSP keeps the tenant updated.</span>}</Card>}
+    {tab === 'issues' && <><Card title="Repairs reported by this tenant"><MiniJobList jobs={issues} empty="Nothing reported." />{issues.some(j => !DONE_JOB.includes(j.status)) && <span className="caption">LSP keeps the tenant updated.</span>}</Card><TenantDamage p={p} /></>}
     {tab === 'documents' && <Card title="Documents" sub="Tenancy agreement, deposit certificate and inspection reports."><DocTable list={docs} hideHome /></Card>}
     {ask && <AskModal title="Ask LSP about this tenancy" about={`Question about ${t.name}'s tenancy at ${p.address}`} onClose={() => setAsk(false)} />}
   </>;

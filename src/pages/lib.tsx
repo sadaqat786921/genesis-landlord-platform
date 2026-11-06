@@ -21,13 +21,16 @@ export const leasedHomes = (s: S) => s.properties.filter(p => isLeased(p));
 export const homeType = (p: Property) => p.type === 'HMO' ? `Shared house · ${p.rooms} rooms` : `${p.beds} bed ${p.type.toLowerCase()}`;
 
 /* ---------------- repairs, as the landlord sees them ---------------- */
-/** Over the landlord's job limit (managed homes) or an owner repair under the lease: the landlord approves an invoice before work starts. */
+/** Over the landlord's job limit and sent to the landlord by the Supervisor, or an owner repair under the lease: the landlord approves a quote before work starts. */
 export const needsMe = (j: Job) => j.status === 'Landlord approval' && !!j.landlordAsk;
 export const limitOf = (s: S) => PLAN[s.me.plan].limit;
-export const yourStep = (s: S, j: Job) => !!j.ownerRepair || (j.price > limitOf(s) && !isLeased(s.properties.find(p => p.id === j.property)));
+/** The landlord has a decision to make (and pays some or all of it): owner repairs on a leased home, or over-limit repairs the Supervisor sent to the landlord. */
+export const yourStep = (s: S, j: Job) => !!j.ownerRepair || j.approval === 'Landlord';
+/** What your plan covers and what you pay for a repair. Under the job limit, or when LSP manages it under your plan, the plan covers all of it. */
+export function coverOf(_s: S, j: Job) { const total = j.price; const covered = j.ownerRepair ? 0 : j.approval === 'Landlord' ? Math.min(j.covered ?? 0, total) : total; return { total, covered: r2(covered), pays: r2(total - covered) }; }
 export function jobView(j: Job): { label: string; tone: Tone } {
   return ({
-    New: { label: 'LSP is checking it', tone: 'info' }, 'Waiting approval': { label: 'With LSP for approval', tone: 'info' }, 'Landlord approval': { label: 'Needs your approval', tone: 'warn' },
+    New: { label: 'LSP is checking it', tone: 'info' }, 'Waiting approval': { label: 'With LSP for approval', tone: 'info' }, 'Landlord approval': j.landlordAsk ? { label: 'Needs your approval', tone: 'warn' } : { label: 'LSP is preparing your quote', tone: 'info' },
     'Ready to assign': { label: 'Booking a contractor', tone: 'info' }, Assigned: { label: 'Contractor booked', tone: 'brand' }, 'In progress': { label: 'Work in progress', tone: 'brand' },
     'Sent back': { label: 'Being put right', tone: 'warn' }, 'Proof uploaded': { label: 'LSP checking the work', tone: 'brand' }, Approved: { label: 'Work done', tone: 'ok' },
     Invoiced: { label: 'Done', tone: 'ok' }, Declined: { label: 'Not going ahead', tone: 'neutral' }, 'Quote sent': { label: 'Quote sent', tone: 'info' }, 'Quote accepted': { label: 'Quote accepted', tone: 'info' },
@@ -46,11 +49,12 @@ export const whyMe = (s: S, j: Job) => j.ownerRepair ? 'Owner repair under the l
 /** The yearly allowance from the agreement. Covered repairs use it once, when the work is done. */
 export function allowanceOf(s: S) {
   const total = s.me.allowance ?? 0;
-  const covered = s.jobs.filter(j => !j.ownerRepair && !yourStep(s, j));
-  const posts = covered.filter(j => ['Approved', 'Invoiced'].includes(j.status)).map(j => ({ j, at: s.invoices.find(i => i.id === j.invoice)?.issued ?? j.reported.split(',')[0], amount: j.price }));
+  const cov = (j: Job) => coverOf(s, j).covered;
+  const covered = s.jobs.filter(j => !j.ownerRepair && j.status !== 'Declined' && cov(j) > 0);
+  const posts = covered.filter(j => ['Approved', 'Invoiced'].includes(j.status)).map(j => ({ j, at: s.invoices.find(i => i.id === j.invoice)?.issued ?? j.reported.split(',')[0], amount: cov(j) }));
   const used = posts.reduce((a, x) => a + x.amount, 0);
-  const committed = covered.filter(j => ['Ready to assign', 'Assigned', 'In progress', 'Sent back', 'Proof uploaded'].includes(j.status)).reduce((a, j) => a + j.price, 0);
-  const waiting = covered.filter(j => ['New', 'Waiting approval'].includes(j.status) && j.price).reduce((a, j) => a + j.price, 0);
+  const committed = covered.filter(j => ['Landlord approval', 'Ready to assign', 'Assigned', 'In progress', 'Sent back', 'Proof uploaded'].includes(j.status)).reduce((a, j) => a + cov(j), 0);
+  const waiting = covered.filter(j => ['New', 'Waiting approval'].includes(j.status) && j.price).reduce((a, j) => a + cov(j), 0);
   const pct = total ? Math.round(used / total * 100) : 0; const pctAll = total ? Math.round((used + committed) / total * 100) : 0;
   return { total, used, committed, waiting, left: Math.max(0, total - used - committed), leftAfter: Math.max(0, total - used - committed), pct, pctAll, posts, renews: renewDate(s) };
 }
@@ -158,12 +162,13 @@ export function InvoiceModal({ id, onClose }: { id: string; onClose: () => void 
     </>}>
     <div className="flex wrap" style={{ gap: 8 }}><Chip tone={st.tone}>{st.label}</Chip>{i.paidAt && !i.covered && <span className="caption">Paid {i.paidAt}</span>}{j && <button className="link small" onClick={() => { onClose(); s.go('repairs', j.id); }}>Repair: {j.title}</button>}</div>
     {i.covered && <Note tone="ok">Covered by your {s.me.plan}% plan. Nothing to pay. {money(i.amount)} was used from your maintenance allowance.</Note>}
+    {!i.covered && !!i.coveredAmt && <Note tone="ok">Your {s.me.plan}% plan covered {money(i.coveredAmt)} of this repair from your maintenance allowance. You pay the rest: {money(i.amount)}.</Note>}
     {toPay && <Note>Taken from your next rent payout on {PAY_DAY} Oct, or pay by bank transfer to {COMPANY.bank.join(', ')} using {i.id} as the reference.</Note>}
     {i.reportedPaid && left > 0 && <Note>You told LSP you paid on {i.reportedPaid}. LSP checks the bank, then marks it paid.</Note>}
     <DocSheet kind="INVOICE" to={{ label: 'Invoice to', rows: [s.me.name, ...s.me.billing.split(', ')] }} site={i.site}
       meta={[['Invoice', i.id.replace('INV-', '')], ['Date', ddmm(i.issued)], ['Terms', i.terms === 'Straight away' ? 'Due on receipt' : 'Net ' + i.terms.replace(' days', '')], ['Due date', ddmm(i.due)]]}
       lines={invoiceLines(i)} vatNo={i.vat ? i.vatNo : undefined}
-      foot={[...(i.vat ? [['Subtotal', '£' + num(r2(i.amount - i.vat))], [`VAT ${i.vatRate ?? 20}%`, '£' + num(i.vat)]] as [string, string][] : []), ...(i.covered ? [['Total', '£' + num(i.amount)], ['Covered by plan', '−£' + num(i.amount)], ['Balance due', '£0.00']] as [string, string][] : i.paid > 0 ? [['Total', '£' + num(i.amount)], ['Paid', '−£' + num(i.paid)], ['Balance due', '£' + num(left)]] as [string, string][] : [['Balance due', '£' + num(i.amount)]] as [string, string][])]}
+      foot={[...(i.vat ? [['Subtotal', '£' + num(r2(i.amount - i.vat))], [`VAT ${i.vatRate ?? 20}%`, '£' + num(i.vat)]] as [string, string][] : []), ...(i.covered ? [['Total', '£' + num(i.amount)], ['Covered by your plan', '−£' + num(i.amount)], ['Balance due', '£0.00']] as [string, string][] : i.coveredAmt ? [['Total', '£' + num(r2(i.amount + i.coveredAmt))], ['Covered by your plan', '−£' + num(i.coveredAmt)], ...(i.paid > 0 ? [['Paid', '−£' + num(i.paid)]] as [string, string][] : []), ['Balance due', '£' + num(left)]] as [string, string][] : i.paid > 0 ? [['Total', '£' + num(i.amount)], ['Paid', '−£' + num(i.paid)], ['Balance due', '£' + num(left)]] as [string, string][] : [['Balance due', '£' + num(i.amount)]] as [string, string][])]}
       stamp={i.covered ? { text: 'COVERED', tone: 'ok' } : left <= 0 ? { text: 'PAID', tone: 'ok' } : j && needsMe(j) ? { text: 'FOR APPROVAL', tone: 'warn' } : { text: 'SENT', tone: 'info' }}>{i.note && <p className="doc-note">{i.note}</p>}</DocSheet>
     {tell && <Modal title="Tell LSP you've paid" sub="LSP checks the bank and marks the invoice paid. Nothing changes until they do." onClose={() => setTell(false)}
       footer={<><Btn kind="outline" onClick={() => setTell(false)}>Cancel</Btn><Btn icon={<Send size={16} />} onClick={() => {
@@ -185,7 +190,7 @@ export function JobReportModal({ j, onClose }: { j: Job; onClose: () => void }) 
     <DocSheet kind="REPAIR REPORT" to={{ label: 'Prepared for', rows: [s.me.name, `${s.me.plan}% plan`] }} site={p ? `${p.address}, ${p.area}` : ''}
       meta={[['Repair', j.id], ['Status', jobView(j).label], ['Reported', j.reported], ['Office Admin', adminName(s, j.admin)]]}>
       <div className="doc-sec"><span className="doc-lab">The repair</span><b>{j.title}</b><span>{j.note ?? 'No details given.'}</span>
-        <div className="doc-kv"><span>Reported by</span><b>{j.by}</b><span>Contractor</span><b>{c?.name ?? 'Not booked yet'}</b><span>Cost</span><b>{j.price ? money(j.price) : 'Not priced yet'}</b><span>Invoice</span><b>{inv ? `${inv.id} · ${invoiceView(s, inv).label}` : 'Not invoiced'}</b></div></div>
+        <div className="doc-kv"><span>Reported by</span><b>{j.by}</b><span>Contractor</span><b>{c?.name ?? 'Not booked yet'}</b><span>Cost</span><b>{j.price ? money(j.price) : 'Not priced yet'}</b><span>Plan covers</span><b>{j.price ? money(coverOf(s, j).covered) : '—'}</b><span>You pay</span><b>{j.price ? money(coverOf(s, j).pays) : '—'}</b><span>Invoice</span><b>{inv ? `${inv.id} · ${invoiceView(s, inv).label}` : 'Not invoiced'}</b></div></div>
       <div className="doc-sec"><span className="doc-lab">What happened</span>{j.events.map((e, i) => <div key={i} className="doc-ev"><span>{e.at}</span><span>{e.text}<em> · {e.by}</em></span></div>)}</div>
       <div className="doc-sec"><span className="doc-lab">Photo proof</span>{j.proof?.length ? <div className="doc-ph">{j.proof.map((x, i) => <div key={i} style={{ backgroundImage: `url(images/home${(i % 3) + 1}.jpg)` }}><span>{x}</span></div>)}</div> : <span className="caption"><ImageIcon size={12} style={{ verticalAlign: -2 }} /> Photos are added when the work is finished.</span>}</div>
     </DocSheet>

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import * as D from './data';
 import { VAT_START, type VatSetting } from './pricing';
+import { seedRooms, type Room } from './rooms';
+import type { Damage } from './damage';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /* Landlord portal: one landlord (Margaret Okafor) signed in. Only her homes and everything linked to them are loaded. */
@@ -27,6 +29,7 @@ export const SCOPE = {
   rent: D.RENT.filter(r => TENANTS.some(t => t.id === r.tenant)),
   invoices: D.INVOICES.filter(i => i.toKind === 'Landlord' && i.to === D.ME),
   leasePays: D.LEASE_PAYS.filter(x => PIDS.has(x.property)),
+  damages: D.DAMAGES.filter(d => PIDS.has(d.property) && !LEASED.has(d.property)),
 };
 
 interface Store {
@@ -38,6 +41,8 @@ interface Store {
   jobs: D.Job[]; setJobs: Setter<D.Job>;
   inspections: D.Inspection[]; safety: D.SafetyCert[]; rent: D.RentRow[];
   invoices: D.Invoice[]; setInvoices: Setter<D.Invoice>;
+  /** Rooms of her homes (view only for the landlord) and tenant damage on her managed homes (view only). */
+  rooms: Room[]; setRooms: Setter<Room>; damages: Damage[];
   leasePays: D.LeasePay[];
   requests: D.LLReq[]; setRequests: Setter<D.LLReq>;
   /** Message ids from LSP that the landlord has opened. */
@@ -66,6 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useList(SCOPE.jobs);
   const [invoices, setInvoices] = useList(SCOPE.invoices);
   const [requests, setRequests] = useList(D.LL_REQUESTS);
+  const [rooms, setRooms] = useList(seedRooms(SCOPE.properties));
   const [read, setRead] = useState<string[]>(ME_LL.comms.filter(c => c.by !== D.ME_NAME && D.parseDate(c.at).getTime() < SEEN_BEFORE).map(c => c.id));
 
   const go = useCallback((r: Route, d: string | null = null) => { nav('/' + r + (d ? '/' + encodeURIComponent(d) : '')); window.scrollTo({ top: 0 }); }, [nav]);
@@ -84,8 +90,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     route, detail, go, toast, toasts, log, activity, me, setMe,
     properties: SCOPE.properties, tenants: SCOPE.tenants, contractors: D.CONTRACTORS, staff: D.STAFF,
     jobs, setJobs, inspections: SCOPE.inspections, safety: SCOPE.safety, rent: SCOPE.rent,
-    invoices, setInvoices, leasePays: SCOPE.leasePays, requests, setRequests, read, markRead, vat: VAT_START,
-  }), [route, detail, go, toast, toasts, log, activity, me, setMe, jobs, setJobs, invoices, setInvoices, requests, setRequests, read, markRead]);
+    invoices, setInvoices, rooms, setRooms, damages: SCOPE.damages, leasePays: SCOPE.leasePays, requests, setRequests, read, markRead, vat: VAT_START,
+  }), [rooms, setRooms, route, detail, go, toast, toasts, log, activity, me, setMe, jobs, setJobs, invoices, setInvoices, requests, setRequests, read, markRead]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

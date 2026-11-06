@@ -4,7 +4,7 @@ import { useStore, useLookups, money } from '../store';
 import { ME_NAME, LSP_PHONE, nowStamp, type Job } from '../data';
 import { ActionCard, Btn, Card, Chip, DetailHead, Empty, Field, HSteps, KV, Kpi, Note, Select, Tabs, Text, Area, Timeline, FilterBar, applyFlt, useFlt, yearsOf, When } from '../ui';
 import { PageHeader, crumbsFor } from '../Shell';
-import { DONE_JOB, jobView, needsMe, yourStep, STEPS_A, STEPS_B, stepAt, whyMe, limitOf, adminName, JobReportModal, InvoiceModal, AskModal, invoiceView, homeType } from './lib';
+import { DONE_JOB, jobView, needsMe, yourStep, STEPS_A, STEPS_B, stepAt, whyMe, limitOf, adminName, JobReportModal, InvoiceModal, AskModal, invoiceView, homeType, coverOf } from './lib';
 import { isLeased } from '../pricing';
 
 export function Repairs() {
@@ -24,7 +24,7 @@ export function RepairTable({ list: all, hideHome }: { list: Job[]; hideHome?: b
         <td><span className="cell"><span className={`tile ${needsMe(j) ? 't-warn' : j.urgent && !DONE_JOB.includes(j.status) ? 't-err' : 't-info'}`} style={{ width: 32, height: 32 }}>{j.ownerRepair ? <KeyRound size={15} /> : <Wrench size={15} />}</span><span className="stack"><b className="strong">{j.title}</b><span className="caption">{j.category}{j.area ? ' · ' + j.area : ''} · {j.by}</span></span></span></td>
         {!hideHome && <td>{L.prop(j.property)?.address}</td>}
         <td><When at={j.reported} /></td>
-        <td>{j.price ? <span className="stack"><b>{money(j.price)}</b><span className="caption">{yourStep(s, j) ? 'Paid by you' : 'Covered by your plan'}</span></span> : <span className="muted">Being priced</span>}</td>
+        <td>{j.price ? <span className="stack"><b>{money(j.price)}</b><span className="caption">{j.status === 'Waiting approval' ? 'LSP deciding' : !coverOf(s, j).pays ? 'Covered by your plan' : coverOf(s, j).covered ? `You pay ${money(coverOf(s, j).pays)}` : 'Paid by you'}</span></span> : <span className="muted">Being priced</span>}</td>
         <td><Chip tone={v.tone}>{v.label}</Chip></td>
         <td style={{ textAlign: 'right' }}>{needsMe(j) ? <Btn sm>Review</Btn> : <ArrowRight size={16} color="#98A2B3" />}</td></tr>; })}
     </tbody></table>{!list.length && <Empty icon={<Wrench size={22} />}>No repairs here.</Empty>}</div></>;
@@ -88,7 +88,7 @@ function ReportRepair() {
         <div className="flex" style={{ justifyContent: 'flex-end' }}><Btn kind="outline" onClick={() => s.go('repairs')}>Cancel</Btn><Btn icon={<Wrench size={16} />} disabled={!f.title.trim()} onClick={submit}>Send to LSP</Btn></div>
       </Card>
       <div className="col">
-        <ActionCard title="What happens next" text={<span className="stack" style={{ gap: 8, fontWeight: 600 }}><span>1. {adminName(s, p.admin)} checks it and gets a price.</span><span>2. Under {money(limitOf(s))}: covered by your plan. LSP's Supervisor approves it.</span><span>3. Over {money(limitOf(s))}: LSP sends you an invoice to approve first.</span><span>4. A contractor does the work and uploads photos.</span><span>5. LSP checks the photos. You can see them here.</span></span>} />
+        <ActionCard title="What happens next" text={<span className="stack" style={{ gap: 8, fontWeight: 600 }}><span>1. {adminName(s, p.admin)} checks it and gets a price.</span><span>2. Under {money(limitOf(s))}: covered by your plan. Your Office Admin approves it and books the contractor.</span><span>3. Over {money(limitOf(s))}: LSP's Supervisor covers it under your plan, or sends you a quote first showing what your plan covers and what you pay.</span><span>4. A contractor does the work and uploads photos.</span><span>5. LSP checks the photos. You can see them here.</span></span>} />
         <Card title="Home"><div className="flex"><span className="photo" style={{ width: 72, height: 54, borderRadius: 10, flex: 'none', backgroundImage: `url(${p.photo})` }} /><div className="stack"><b>{p.address}</b><span className="caption">{homeType(p)} · {p.area}</span></div></div></Card>
       </div>
     </div>
@@ -104,13 +104,13 @@ function RepairPage({ id }: { id: string }) {
   const next = (() => {
     switch (j.status) {
       case 'New': return `${adminName(s, j.admin)} is checking it and getting a price.`;
-      case 'Waiting approval': return `Priced at ${money(j.price)}. ${mine ? 'LSP\'s Supervisor approves it first, then you are asked.' : 'Covered by your plan. LSP\'s Supervisor is approving it.'}`;
-      case 'Landlord approval': return `Waiting for you to approve ${money(j.price)}.`;
+      case 'Waiting approval': return `Priced at ${money(j.price)}. That is over your ${money(limitOf(s))} job limit, so LSP's Supervisor decides: cover it under your plan, or send you a quote first.`;
+      case 'Landlord approval': return j.landlordAsk ? `Waiting for you to approve quote ${j.quoteNo}. Your plan covers ${money(coverOf(s, j).covered)}, you pay ${money(coverOf(s, j).pays)}.` : `LSP is preparing a quote for you. Your plan covers ${money(coverOf(s, j).covered)}, you pay ${money(coverOf(s, j).pays)}.`;
       case 'Ready to assign': case 'Assigned': return `${c?.name ?? 'A contractor'} has the job. LSP arranges access${j.access ? ` (${j.access.toLowerCase()})` : ''}.`;
       case 'In progress': return `${c?.name} is doing the work. They upload photos when it is finished.`;
       case 'Sent back': return `LSP asked ${c?.name} to put something right before it is signed off.`;
       case 'Proof uploaded': return `${c?.name} has finished. LSP is checking the photos.`;
-      case 'Approved': case 'Invoiced': return mine ? `Finished and checked. Invoice ${j.invoice} ${inv ? '· ' + invoiceView(s, inv).label.toLowerCase() : ''}.` : `Finished and checked. Covered by your plan: ${money(j.price)} from your maintenance allowance.`;
+      case 'Approved': case 'Invoiced': return !coverOf(s, j).pays ? `Finished and checked. Covered by your plan: ${money(j.price)} from your maintenance allowance.` : j.invoice ? `Finished and checked. Invoice ${j.invoice} ${inv ? '· ' + invoiceView(s, inv).label.toLowerCase() : ''}.` : `Finished and checked. LSP sends the invoice for the ${money(coverOf(s, j).pays)} you pay.`;
       default: return j.declined ?? 'Not going ahead.';
     }
   })();
@@ -137,7 +137,7 @@ function RepairPage({ id }: { id: string }) {
           {done && j.status !== 'Declined' && <Btn block kind="outline" icon={<FileText size={16} />} onClick={() => setM('report')}>Download repair report</Btn>}
           <Btn block kind="ghost" icon={<MessageSquare size={16} />} onClick={() => setM('ask')}>Ask LSP about it</Btn>
         </ActionCard>
-        <Card title="Cost"><KV rows={[['Cost', j.price ? money(j.price) : 'Being priced'], ['Who pays', !j.price ? '—' : j.ownerRepair ? 'You, as the owner under the lease' : mine ? `You · over your ${money(limitOf(s))} job limit` : `Covered by your ${s.me.plan}% plan`], ...(!mine && j.price ? [['Allowance', 'Used once, when the work is done'] as [string, string]] : [])]} />
+        <Card title="Cost">{j.price > 0 && j.status !== 'Waiting approval' && <div className="covsplit"><div><span className="caption">Total</span><b>{money(j.price)}</b></div><div className="ok"><span className="caption">Plan covers</span><b>{money(coverOf(s, j).covered)}</b></div><div className="you"><span className="caption">You pay</span><b>{money(coverOf(s, j).pays)}</b></div></div>}<KV rows={[['Cost', j.price ? money(j.price) : 'Being priced'], ['Who pays', !j.price ? '—' : j.status === 'Waiting approval' ? 'LSP\'s Supervisor is deciding' : j.ownerRepair ? 'You, as the owner under the lease' : !coverOf(s, j).pays ? `Covered by your ${s.me.plan}% plan` : `Your plan covers ${money(coverOf(s, j).covered)}, you pay ${money(coverOf(s, j).pays)}`], ...(coverOf(s, j).covered && j.price && j.status !== 'Waiting approval' ? [['Allowance', `${money(coverOf(s, j).covered)} used once, when the work is done`] as [string, string]] : [])]} />
           {mine && needsMe(j) && <span className="caption">{whyMe(s, j)}.</span>}</Card>
         <Card title="Contractor">{c ? <><div className="flex"><span className="tile t-info"><Wrench size={16} /></span><div className="stack grow"><b>{c.name}</b><span className="caption">{c.trade} · checked by LSP, documents in date</span></div></div><span className="caption">LSP talks to the contractor for you. Use “Ask LSP” for anything about the work.</span></> : <span className="caption">LSP chooses a checked contractor once the price is agreed.</span>}</Card>
         <Card title="Home"><button className="item click" style={{ padding: 0 }} onClick={() => s.go('properties', p.id)}><span className="photo" style={{ width: 72, height: 54, borderRadius: 10, flex: 'none', backgroundImage: `url(${p.photo})` }} /><div className="stack grow"><b>{p.address}</b><span className="caption">{homeType(p)}</span></div><ArrowRight size={16} color="#98A2B3" /></button></Card>

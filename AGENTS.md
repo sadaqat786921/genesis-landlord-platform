@@ -31,12 +31,12 @@ The client has approved this design. When editing:
 ## Landlord rules (this portal)
 - Signed in as `ME` = `L1`, Margaret Okafor (`src/data.ts`). Demo login: any email/password, code `123456`. "First time? Set your password" shows the welcome-email password setup; "Forgot password?" sends a reset link. 5 wrong codes lock the account.
 - The store (`src/store.tsx`, `SCOPE`) loads only her records: her homes, their tenants, rent, repairs, certificates, inspections, her invoices and lease payments. Occupiers of a home leased to LSP are LSP's tenants, so they are not shown. On a leased home she only sees owner repairs (roof and structure).
-- Her homes: 12 Oak Street and Flat 4, 19 Highgate Hill are managed on the 16% plan (job limit £200, allowance £600 a year); 6 Rosebery Gardens is leased to LSP (lease rent £1,200 a month, no fee). Data for P16, T14, J15–J18, INV-1039/1041/1047/1048 and her messages is at the end of `data.ts`.
+- Her homes: 12 Oak Street and Flat 4, 19 Highgate Hill are managed on the 16% plan (job limit £200, allowance £600 a year); 6 Rosebery Gardens is leased to LSP (lease rent £1,200 a month, no fee). Data for P16, T14, J15–J18 (J15 and J18 wait for her as quotes Q-2405 and Q-2404), INV-1039/1041, her messages and damage quote DM10 is at the end of `data.ts`.
 - Web only, desktop first (same layout as the staff portals). No native app.
 
 ## Screens (`src/pages/`)
 - `Home.tsx`: payout hero (this month's payout, allowance ring), Needs your decision, rent/arrears/safety/allowance KPIs, your homes, coming up, repairs under way, your Office Admin.
-- `Approvals.tsx` (**Needs my approval**): repairs over the job limit, and owner repairs on leased homes. Detail shows the invoice on LSP paper (FOR APPROVAL), photos, how you pay, allowance. Approve (tick to confirm, optional note) → job `Assigned`; Decline (reason) → `Declined`, nothing charged; Ask a question → message. "No reply is not a yes". Decided tab keeps every decision with date and time.
+- `Approvals.tsx` (**Needs my approval**): repairs over the job limit that LSP's Supervisor sent to the landlord, and owner repairs on leased homes. Detail shows **what you pay if you approve** (repair total, your plan covers, you pay), the **quote** on LSP paper (FOR APPROVAL) with the same three lines, photos, how you pay and the allowance. The list and Home show the amount you pay. The invoice only comes after the work is done and checked. Approve (tick to confirm, optional note) → job `Assigned`; Decline (reason) → `Declined`, nothing charged; Ask a question → message. "No reply is not a yes". Decided tab keeps every decision with date and time.
 - `Repairs.tsx`: list with search, type and year filter; **Report a repair** form (home, room, type, urgency, access, phone, photos); repair page with landlord steps (Reported → Priced → Approved by LSP → [Your approval] → Work in progress → Checked by LSP → Done), what happens next, cost and who pays, photo proof, repair report PDF. Internal costs, hours and margins are never shown.
 - `Properties.tsx`: cards (Managed / Leased to LSP); managed home tabs: Overview (fee and maintenance), Tenancy, Repairs, Safety checks, Inspections (locked reports), Rent, Documents, History; leased home tabs: Overview, Lease, Lease payments, Owner repairs, Safety checks, Documents, History. Property Management Plan view and PDF.
 - `Tenants.tsx`: tenancy, rent, deposit, repairs reported, documents. KYC files and contact stay with LSP.
@@ -49,7 +49,11 @@ The client has approved this design. When editing:
 - `Activity.tsx`, `Account.tsx` (details, bank change request with phone check, notifications, password and security, agreement, data copy).
 - `lib.tsx`: landlord status wording (`jobView`, `needsMe`, `yourStep`), allowance (`allowanceOf`), statements, invoice status, the LSP paper template (`DocSheet`) and the invoice, repair report, inspection and plan pop-ups.
 
+## Rooms and tenant damage
+- `Rooms.tsx` + `src/rooms.ts` (same files as the staff portals, view only here): **Rooms** tab on every home. Room cards with photo, floor, size and area; click for photos, dimensions, floor plan and details.
+- `DamageView.tsx` + `src/damage.ts`: **Tenant damage** on the property Tenancy tab and the tenant's Repairs & damage tab (view only). LSP quotes the tenant; the tenant pays, never the landlord's allowance.
+
 ## Money rules
 - Repairs under the job limit are covered by the plan: the invoice shows £0 to pay and the amount is taken off the allowance once, when the work is done.
-- Over the job limit (and owner repairs on leased homes) the landlord approves an invoice before work starts and pays for it after the work is done and checked (taken from the next payout or paid by transfer).
+- Over the job limit LSP's Supervisor decides: manage it under the plan (covered, £0 to pay) or send it to the landlord. Sent to the landlord, the landlord approves a **quote** first: the plan covers part (`covered`, usually up to the job limit) and the landlord pays the rest (`coverOf` in `lib.tsx`). Owner repairs on leased homes are paid in full by the owner. The landlord pays after the work is done and checked (taken from the next payout or paid by transfer). The invoice shows Total, Covered by your plan and Balance due (`coveredAmt`).
 - VAT (company setting, default Off) is added to LSP's fee only. Leased homes have no fee; LSP pays the lease rent on its own schedule.
